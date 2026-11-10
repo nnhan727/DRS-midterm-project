@@ -1,0 +1,14 @@
+{
+ "ma_nhom": "617",
+ "he_thong": "fat32",
+ "thanh_vien": [
+  {"mssv": "", "ho_ten": "", "phu_trach": ""},
+  {"mssv": "", "ho_ten": "", "phu_trach": ""},
+  {"mssv": "", "ho_ten": "", "phu_trach": ""}
+ ],
+ "cong_diem": {
+  "repair": [],
+  "mo_rong": null
+ },
+ "_huong_dan": "repair: danh sách tình huống có cài --repair, vd [1, 2]. mo_rong: null hoặc {\"tinh_huong\": \"ext-root|ext-size|ext-mbr\", \"dac_ta\": \"mo_rong.json\"}"
+}
