@@ -10,8 +10,9 @@ Quy tắc:
 """
 from binio import AnhDia
 from tienich import NhatKy, ThuMucKetQua
-from volume_info import FAT32Reader
 
+from volume_info import FAT32Reader
+from case3 import Case3Recoverer
 
 class BaiLam:
     def __init__(self, log: NhatKy):
@@ -25,8 +26,7 @@ class BaiLam:
              ...                                  # các tham số khác tuỳ hệ thống (không chấm)
              "files": [{"path": "DATA/A12.JPG", "size": 123456}, ...]}   # chỉ tập tin, không thư mục
         """
-        reader = FAT32Reader(img, self.log)
-        return reader.get_volume_info()
+        return FAT32Reader(img, self.log).get_volume_info()
 
     # ------------------------------------------------------------- tình huống
     def case1(self, img, out):
@@ -41,19 +41,7 @@ class BaiLam:
 
     def case3(self, img: AnhDia, out: ThuMucKetQua):
         """Tình huống 3 — sai chuỗi vị trí. Ghép mảnh theo nội dung, lưu tập tin JPEG mục tiêu."""
-        # raise NotImplementedError("case3")
-        
-        # read BPB
-        byte_per_sec = img.u16(0x0b)
-        sec_per_clus = img.u8(0x0d)
-        rsvd_sec_cnt = img.u16(0x0e)
-        num_fats = img.u8(0x10)
-        fat_sz = img.u32(0x24)
-        root_clus = img.u32(0x2c)
-
-        byte_per_clus = byte_per_sec * sec_per_clus
-        fat_offset = rsvd_sec_cnt * byte_per_sec
-        
+        Case3Recoverer(img, self.log).recover(out)
 
     def case_ext(self, img, out):
         """Tình huống mở rộng nhóm đã chọn (khai trong nhom.json)."""

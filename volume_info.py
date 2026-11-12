@@ -34,7 +34,7 @@ class FAT32Reader:
         self.log.buoc("Đầu FAT1", offset=self.fat_off)
         self.log.buoc("Đầu vùng dữ liệu (cluster 2)", offset=self.data_off)
 
-    def _chain(self, start_clus):
+    def chain(self, start_clus):
         clus_chain = []
         visited_clus = set()
         clus = start_clus
@@ -44,21 +44,21 @@ class FAT32Reader:
             clus = self.img.u32(self.fat_off + 4 * clus) & 0x0FFFFFFF
         return clus_chain
 
-    def _checksum_short(self, short_name):
+    def checksum_short(self, short_name):
         chk = 0
         for byte in short_name:
             chk = (((chk & 1) << 7) + (chk >> 1) + byte) & 0xFF
         return chk
 
-    def _long_name(self, lfn, short_name):
+    def long_name(self, lfn, short_name):
         """Ghép các entry LFN (nếu checksum khớp short entry), trả None nếu không dùng được."""
-        if not lfn or any(chk != self._checksum_short(short_name) for _, chk, _ in lfn):
+        if not lfn or any(chk != self.checksum_short(short_name) for _, chk, _ in lfn):
             return None
         raw = b"".join(ch for _, _, ch in sorted(lfn, key=lambda x: x[0]))
         s = raw.decode("utf-16le", errors="replace")
         return s.split("\x00")[0].rstrip("\uffff")
 
-    def _short_name(self, entry):
+    def short_name(self, entry):
         base = entry[0:8].decode("ascii", "replace").rstrip()
         ext = entry[8:11].decode("ascii", "replace").rstrip()
 
@@ -69,42 +69,49 @@ class FAT32Reader:
             ext = ext.lower()
         return base + ("." + ext if ext else "")
 
-    def _traverse_dir(self, c, prefix):
+    def walk(self, c, prefix=""):
+        """Yield mọi entry (cả thư mục) với đầy đủ thông tin."""
         lfn = []
-        for c_i in self._chain(c):
-            data = self.img.doc(self.data_off + (c_i - 2) * self.clus_size, self.clus_size)
+        for c_i in self.chain(c):
+            base = self.data_off + (c_i - 2) * self.clus_size
+            data = self.img.doc(base, self.clus_size)
             for i in range(0, self.clus_size, 32):
                 entry = data[i:i+32]
-
-                # status byte
-                if entry[0] == 0x00:    # no more entry
+                if entry[0] == 0x00:
                     return
-                if entry[0] == 0xE5:    # deleted entry
+                if entry[0] == 0xE5:
                     lfn = []
                     continue
-                
                 attr = entry[0x0B]
-                if attr == 0x0F:        # entry tên dài
+                if attr == 0x0F:
                     lfn.append((entry[0] & 0x1F, entry[0x0D], entry[1:11] + entry[14:26] + entry[28:32]))
                     continue
-                if attr & 0x08:         # volume label ko có tên dài
+                if attr & 0x08:
                     lfn = []
                     continue
 
-                name = self._long_name(lfn, entry[:11]) or self._short_name(entry)
+                name = self.long_name(lfn, entry[:11]) or self.short_name(entry)
                 lfn = []
                 if name in (".", ".."):
                     continue
+
                 clus = (int.from_bytes(entry[0x14:0x16], "little") << 16) | int.from_bytes(entry[0x1A:0x1C], "little")
                 size = int.from_bytes(entry[0x1C:0x20], "little")
-                
-                if attr & 0x10:
-                    yield from self._traverse_dir(clus, prefix + name + "/")
-                else:
-                    yield {"path": prefix + name, "size": size}
+                is_dir = bool(attr & 0x10)
+
+                yield {"path": prefix + name, "size": size, "first_clus": clus,
+                    "is_dir": is_dir, "entry_off": base + i}
+                if is_dir:
+                    yield from self.walk(clus, prefix + name + "/")
+
+    def traverse_dir(self, c, prefix=""):
+        """Chỉ trả về path và size theo đúng như đề."""
+        for e in self.walk(c, prefix):
+            if not e["is_dir"]:
+                yield {"path": e["path"], "size": e["size"]}
 
     def get_volume_info(self):
-        files = list(self._traverse_dir(self.root_clus, ""))
+        files = list(self.traverse_dir(self.root_clus, ""))
         for f in files:
             self.log.buoc("Tập tin", gia_tri=f)
     

@@ -1,4 +1,6 @@
 __pycache__/
 
+*.jsonl
+ket_qua/
 mau/
 Sample_Image.zip
