@@ -14,18 +14,12 @@ class FAT32Reader:
         self.fat_sz = img.u32(0x24)
         self.root_clus = img.u32(0x2C)
 
-        self.log.buoc(
-            "BPB: byte_per_sec/sec_per_clus/rsvd_sec_cnt/num_fats/fat_sz/root_clus",
-            offset=0x0B,
-            gia_tri=[
-                self.byte_per_sec,
-                self.sec_per_clus,
-                self.rsvd_sec_cnt,
-                self.num_fats,
-                self.fat_sz,
-                self.root_clus
-            ]
-        )
+        self.log.buoc("Đọc BPB_BytsPerSec", offset=0x0B, gia_tri=self.byte_per_sec)
+        self.log.buoc("Đọc BPB_SecPerClus", offset=0x0D, gia_tri=self.sec_per_clus)
+        self.log.buoc("Đọc BPB_RsvdSecCnt", offset=0x0E, gia_tri=self.rsvd_sec_cnt)
+        self.log.buoc("Đọc BPB_NumFATs",    offset=0x10, gia_tri=self.num_fats)
+        self.log.buoc("Đọc BPB_FATSz32",    offset=0x24, gia_tri=self.fat_sz)
+        self.log.buoc("Đọc BPB_RootClus",   offset=0x2C, gia_tri=self.root_clus)
     
         self.clus_size = self.byte_per_sec * self.sec_per_clus
         self.fat_off = self.rsvd_sec_cnt * self.byte_per_sec

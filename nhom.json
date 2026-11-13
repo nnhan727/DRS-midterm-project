@@ -2,9 +2,9 @@
  "ma_nhom": "617",
  "he_thong": "fat32",
  "thanh_vien": [
-  {"mssv": "23127057", "ho_ten": "Phạm Nam Huyên", "phu_trach": "Case 2"},
-  {"mssv": "23127095", "ho_ten": "Nguyễn Trọng Nhân", "phu_trach": "Case 3"},
-  {"mssv": "23127465", "ho_ten": "Nguyễn Hồ Anh Quốc", "phu_trach": "Case 1"}
+  {"mssv": "23127057", "ho_ten": "Phạm Nam Huyên", "phu_trach": "case2()"},
+  {"mssv": "23127095", "ho_ten": "Nguyễn Trọng Nhân", "phu_trach": "info() + case3()"},
+  {"mssv": "23127465", "ho_ten": "Nguyễn Hồ Anh Quốc", "phu_trach": "case1()"}
  ],
  "cong_diem": {
   "repair": [],

@@ -96,9 +96,14 @@ class Case3Recoverer:
         for entry in jpeg_entries:
             needed_clus = math.ceil(entry["size"] / self.clus_size)
             fat_chain = self.reader.chain(entry["first_clus"])
-            self.log.buoc("JPEG: so cluster can vs do dai chuoi FAT",
-                          gia_tri={"path": entry["path"], "needed_clus": needed_clus,
-                                   "fat_chain_len": len(fat_chain)})
+            self.log.buoc(
+                "JPEG: so cluster cần và độ dài chuỗi FAT", 
+                gia_tri={
+                    "path": entry["path"],
+                    "needed_clus": needed_clus,
+                    "fat_chain_len": len(fat_chain)
+                }
+            )
             if len(fat_chain) < needed_clus:
                 broken_entries.append(entry)
 
@@ -152,6 +157,15 @@ class Case3Recoverer:
                 tail_cache[clus] = tail[-2:] == JPEG_EOI
             return tail_cache[clus]
 
+        zero_cache = {}
+
+        def is_zero_clus(clus):
+            # cluster toàn 0x00 thì không thể là dữ liệu JPEG thật vì entropy gần như luôn có byte khác 0
+            if clus not in zero_cache:
+                zero_cache[clus] = not any(self._read_clus(clus))
+            return zero_cache[clus]
+
+        # mỗi ứng viên: (gap_clus, frag1_clus_cnt, clus_chain)
         matches = []
         for frag1_clus_cnt in range(1, min(needed_clus - 1, free_run_len) + 1):
             frag2_clus_cnt = needed_clus - frag1_clus_cnt
@@ -161,36 +175,48 @@ class Case3Recoverer:
                 frag2_last_clus = frag2_start_clus + frag2_clus_cnt - 1
                 if frag2_last_clus >= self.total_clus:
                     break
-                if not ends_with_eoi(frag2_last_clus):             # lọc nhanh
+                if not ends_with_eoi(frag2_last_clus):
                     continue
 
                 frag2_clus_list = list(range(frag2_start_clus, frag2_last_clus + 1))
                 if any(c in occupied_clus for c in frag2_clus_list):
                     continue
-                if not any(self._read_clus(frag2_start_clus)):     # cluster toàn 0 -> không phải dữ liệu
-                    continue
 
                 clus_chain = list(range(first_clus, frag1_end_clus)) + frag2_clus_list
+                # _is_valid_jpeg bỏ qua byte 00 trong vùng entropy nên một cluster toàn 0 lọt giữa chuỗi
+                # (do chọn sai độ dài mảnh 1) vẫn "hợp lệ" -> phải loại thủ công, kiểm tra cả chuỗi
+                if any(is_zero_clus(c) for c in clus_chain):
+                    continue
                 jpeg_data = b"".join(self._read_clus(c) for c in clus_chain)[:size]
                 if _is_valid_jpeg(jpeg_data):
                     gap_clus = frag2_start_clus - frag1_end_clus
-                    matches.append((gap_clus, clus_chain))
-                    self.log.buoc("Ứng viên hợp lệ",
-                                  gia_tri={"frag1_clus_cnt": frag1_clus_cnt,
-                                           "frag2_start_clus": frag2_start_clus,
-                                           "gap_clus": gap_clus})
+                    matches.append((gap_clus, frag1_clus_cnt, clus_chain))
+                    self.log.buoc(
+                        "Ứng viên hợp lệ",
+                        gia_tri={
+                            "frag1_clus_cnt": frag1_clus_cnt,
+                            "frag2_start_clus": frag2_start_clus,
+                            "gap_clus": gap_clus
+                        }
+                    )
 
         if not matches:
             raise ValueError("không tìm được cách ghép mảnh hợp lệ")
 
-        # nhiều ứng viên: chọn khoảng trống nhỏ nhất, ưu tiên mảnh 1 dài hơn
-        matches.sort(key=lambda m: m[0])
-        best_gap, best_chain = matches[0]
-        self.log.quyet_dinh(f"Chọn chuỗi cluster cuối cùng ({len(matches)} ứng viên, gap={best_gap})",
-                            clus_chain=best_chain)
+        # Nhiều ứng viên -> chọn theo thứ tự ưu tiên (từ trên xuống):
+        #   1) gap > 0 trước gap == 0 vì đề nói file tách 2 mảnh; gap == 0 nghĩa là chuỗi liên tục, chỉ dùng làm phương án cuối nếu không có ứng viên nào khác.
+        #   2) gap nhỏ nhất: bộ cấp phát thường đặt mảnh 2 gần mảnh 1 (heuristic)
+        #   3) mảnh 1 dài nhất (frag1_clus_cnt lớn nhất): với cùng cluster cuối thì gap không đổi khi k đổi nên gap không phân biệt được k. Mảnh 1 thật kết thúc ngay trước cluster đầu tiên không thuộc file (đã bị file khác chiếm - bị chặn bởi free_run_len - hoặc là cluster trống toàn 0 - bị loại ở trên), nên k lớn nhất còn hợp lệ chính là điểm cắt thật.
+        matches.sort(key=lambda m: (m[0] == 0, m[0], -m[1]))
+        best_gap, best_k, best_chain = matches[0]
+        self.log.quyet_dinh(
+            f"Chọn chuỗi cluster cuối cùng ({len(matches)} ứng viên, gap={best_gap}, "
+            f"mảnh 1 dài {best_k} cluster)",
+            clus_chain=best_chain,
+            ung_vien=[{"gap": g, "frag1_clus_cnt": k} for g, k, _ in matches[:10]]   # tối đa 10 dòng để log gọn
+        )
         return best_chain
 
-    # ------------------------------------------------------------ chính
     def recover(self, out: ThuMucKetQua):
         entries = list(self.reader.walk(self.reader.root_clus))
         file_entries = [e for e in entries if not e["is_dir"]]

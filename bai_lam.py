@@ -29,12 +29,12 @@ class BaiLam:
         return FAT32Reader(img, self.log).get_volume_info()
 
     # ------------------------------------------------------------- tình huống
-    def case1(self, img, out):
+    def case1(self, img: AnhDia, out: ThuMucKetQua):
         """Tình huống 1 — sai tham số boot sector / superblock.
         Suy ra giá trị đúng, rồi trích xuất MỌI tập tin: out.luu("DATA/A12.JPG", data)."""
         raise NotImplementedError("case1")
 
-    def case2(self, img, out):
+    def case2(self, img: AnhDia, out: ThuMucKetQua):
         """Tình huống 2 — sai directory entry. Ghép đúng tên với dữ liệu, lưu các tập tin bị ảnh hưởng
         (lưu thêm cả tập tin không bị ảnh hưởng cũng được)."""
         raise NotImplementedError("case2")
