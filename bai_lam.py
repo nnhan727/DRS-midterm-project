@@ -13,6 +13,7 @@ from tienich import NhatKy, ThuMucKetQua
 
 from volume_info import FAT32Reader
 from case3 import Case3Recoverer
+from case2 import Case2Recoverer
 
 class BaiLam:
     def __init__(self, log: NhatKy):
@@ -37,7 +38,7 @@ class BaiLam:
     def case2(self, img: AnhDia, out: ThuMucKetQua):
         """Tình huống 2 — sai directory entry. Ghép đúng tên với dữ liệu, lưu các tập tin bị ảnh hưởng
         (lưu thêm cả tập tin không bị ảnh hưởng cũng được)."""
-        raise NotImplementedError("case2")
+        Case2Recoverer(img, self.log).recover(out)
 
     def case3(self, img: AnhDia, out: ThuMucKetQua):
         """Tình huống 3 — sai chuỗi vị trí. Ghép mảnh theo nội dung, lưu tập tin JPEG mục tiêu."""
