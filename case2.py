@@ -160,7 +160,7 @@ def _recover_case2(img: AnhDia, out: ThuMucKetQua, log: NhatKy):
         ],
     )
 
-    def kiem_tra_chu_ky(data_head, ext):
+    def kiem_tra_chu_ky(data_head, ext, file_size):
         if ext in ("JPG", "JPEG"):
             return data_head.startswith(b"\xFF\xD8\xFF")
         if ext == "PNG":
@@ -168,7 +168,7 @@ def _recover_case2(img: AnhDia, out: ThuMucKetQua, log: NhatKy):
         if ext == "PDF":
             return data_head.startswith(b"%PDF-")
         if ext == "TXT":
-            sample = data_head[:min(len(data_head), 200)]
+            sample = data_head[:min(file_size, len(data_head))]
             return all(b in (9, 10, 13) or 32 <= b <= 126 for b in sample)
         return True
 
@@ -176,7 +176,11 @@ def _recover_case2(img: AnhDia, out: ThuMucKetQua, log: NhatKy):
         matched_candidate = None
         for candidate in orphan_chains:
             data_head = doc_cluster(candidate["head"])
-            sig_match = kiem_tra_chu_ky(data_head, file_info["ext"])
+            sig_match = kiem_tra_chu_ky(
+                data_head,
+                file_info["ext"],
+                file_info["size"],
+            )
             len_match = candidate["length"] == file_info["expected_clusters"]
             if sig_match and len_match:
                 matched_candidate = candidate
